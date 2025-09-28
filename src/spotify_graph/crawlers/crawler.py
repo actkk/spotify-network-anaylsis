@@ -11,6 +11,7 @@ from spotify_graph.logging import get_logger
 from spotify_graph.models.profile import Profile, Relationship
 from spotify_graph.crawlers.profile_page import ProfilePageScraper
 from spotify_graph.storage.repository import GraphRepository
+from spotify_graph.storage.run_recorder import RunRecorder
 
 LOGGER = get_logger(__name__)
 
@@ -24,11 +25,13 @@ class SpotifyGraphCrawler:
         *,
         repository: Optional[GraphRepository] = None,
         settings: Optional[Settings] = None,
+        run_recorder: Optional[RunRecorder] = None,
     ) -> None:
         self.driver = driver
         self.repository = repository or GraphRepository()
         self.settings = settings or get_settings()
         self.scraper = ProfilePageScraper(driver, settings=self.settings)
+        self.run_recorder = run_recorder
 
     def crawl(self, root_profile: str, max_depth: Optional[int] = None) -> None:
         depth_limit = max_depth or self.settings.crawl_max_depth
@@ -52,6 +55,7 @@ class SpotifyGraphCrawler:
             if cached_profile and cached_profile.followers_fetch_attempted:
                 profile = cached_profile
                 profile.last_seen_at = datetime.utcnow()
+                self._record_profile(profile)
                 if cached_profile.followers_fetched:
                     followers = self.repository.get_followers(profile_id)
                     connections = {"followers": followers}
@@ -83,6 +87,7 @@ class SpotifyGraphCrawler:
                 continue
 
             self.repository.upsert_profile(profile)
+            self._record_profile(profile)
 
             edges_to_add: List[Relationship] = []
             for relation, neighbors in connections.items():
@@ -92,6 +97,7 @@ class SpotifyGraphCrawler:
                         continue
 
                     self.repository.upsert_profile(neighbor)
+                    self._record_profile(neighbor)
 
                     if relation == "following":
                         edge = Relationship(
@@ -109,6 +115,7 @@ class SpotifyGraphCrawler:
                         next_id = neighbor.id
 
                     edges_to_add.append(edge)
+                    self._record_edge(edge)
 
                     if depth + 1 <= depth_limit and next_id not in visited and next_id not in queued:
                         queue.append((next_id, depth + 1))
@@ -179,6 +186,14 @@ class SpotifyGraphCrawler:
             LOGGER.debug("No follower connections recorded for %s", profile_id)
 
         return profile, connections
+
+    def _record_profile(self, profile: Profile) -> None:
+        if self.run_recorder:
+            self.run_recorder.record_profile(profile)
+
+    def _record_edge(self, edge: Relationship) -> None:
+        if self.run_recorder:
+            self.run_recorder.record_edge(edge)
 
 
 __all__ = ["SpotifyGraphCrawler"]

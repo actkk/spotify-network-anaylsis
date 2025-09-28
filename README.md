@@ -75,6 +75,9 @@ cat data/loops.txt  # saved friend-of-friend triangles
 ```
 Triangles are returned using display names to make inspection easier. The loader writes results to `data/loops.txt` for reuse.
 
+### Per-Run Results
+Every crawl produces a fresh snapshot under `data/results/<timestamp>_<slug>/` containing the query-limited `profiles.json`, `edges.json`, and `metadata.json`. These files only include the profiles visited during that run, while `data/master/` retains the global cache to avoid re-scraping unchanged accounts.
+
 ## Development Notes
 - All source lives under `src/spotify_graph`. Set `PYTHONPATH=src` when running modules directly.
 - Formatting and linting are not enforced; follow your usual Python guidelines.
@@ -89,4 +92,3 @@ Triangles are returned using display names to make inspection easier. The loader
 "Automation and analytics toolkit for mapping Spotify follower networks with Selenium crawlers and NetworkX-based insights."
 
 <img width="525" height="475" alt="image" src="https://github.com/user-attachments/assets/c65ba924-b3d1-44ff-a94a-87bfd4f55706" />
-

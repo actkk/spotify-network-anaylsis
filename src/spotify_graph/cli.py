@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
+import re
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import Iterator, Optional
 
@@ -9,7 +12,7 @@ from urllib.parse import urlsplit
 import typer
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from spotify_graph.config import Settings, get_settings
+from spotify_graph.config import PROJECT_ROOT, Settings, get_settings
 from spotify_graph.analysis.graph_builder import build_display_graph, export_graphml
 from spotify_graph.analysis.loops import find_triangles
 from spotify_graph.crawlers.auth import SpotifyWebAuthenticator
@@ -17,6 +20,8 @@ from spotify_graph.crawlers.cookies import load_cookies, save_cookies
 from spotify_graph.crawlers.crawler import SpotifyGraphCrawler
 from spotify_graph.crawlers.webdriver import build_chrome_driver
 from spotify_graph.storage.repository import GraphRepository
+from spotify_graph.storage.json_store import JsonGraphStore
+from spotify_graph.storage.run_recorder import RunRecorder
 from spotify_graph.logging import configure_logging, get_logger
 
 app = typer.Typer(add_completion=False)
@@ -88,6 +93,57 @@ def authenticate_session(
         save_cookies(driver, cookie_path, domains=domains)
 
 
+def _slugify(value: str) -> str:
+    value = value.strip().lower()
+    value = re.sub(r"\s+", "-", value)
+    value = re.sub(r"[^a-z0-9_-]", "-", value)
+    value = re.sub(r"-+", "-", value)
+    return value.strip("-") or "profile"
+
+
+def write_run_results(
+    *,
+    repository: GraphRepository,
+    run_recorder: RunRecorder,
+    root_profile_id: str,
+    run_timestamp: datetime,
+) -> Path:
+    results_root = PROJECT_ROOT / "data" / "results"
+    results_root.mkdir(parents=True, exist_ok=True)
+
+    root_profile = repository.find_profile(root_profile_id)
+    display_name = (root_profile.display_name if root_profile else None) or root_profile_id
+    slug = _slugify(display_name)
+    run_dir = results_root / f"{run_timestamp.strftime('%Y%m%d-%H%M%S')}_{slug}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    profiles_payload = {
+        pid: repository.profiles[pid].model_dump(mode="json")
+        for pid in sorted(run_recorder.profile_ids)
+        if pid in repository.profiles
+    }
+
+    edges_payload = [edge.model_dump(mode="json") for edge in run_recorder.edges]
+
+    with (run_dir / "profiles.json").open("w", encoding="utf-8") as fp:
+        json.dump(profiles_payload, fp, indent=2, ensure_ascii=False)
+
+    with (run_dir / "edges.json").open("w", encoding="utf-8") as fp:
+        json.dump(edges_payload, fp, indent=2, ensure_ascii=False)
+
+    metadata = {
+        "root_profile_id": root_profile_id,
+        "display_name": display_name,
+        "profile_count": len(profiles_payload),
+        "edge_count": len(edges_payload),
+        "generated_at": run_timestamp.isoformat() + "Z",
+    }
+    with (run_dir / "metadata.json").open("w", encoding="utf-8") as fp:
+        json.dump(metadata, fp, indent=2, ensure_ascii=False)
+
+    return run_dir
+
+
 @app.command()
 def login_test(
     headless: bool = typer.Option(True, "--headless/--no-headless", help="Run browser in headless mode."),
@@ -149,6 +205,10 @@ def scrape(
 
     repository = GraphRepository()
 
+    run_timestamp = datetime.utcnow()
+    run_recorder = RunRecorder()
+    repository = GraphRepository(store=JsonGraphStore(timestamp=run_timestamp))
+
     with managed_driver(headless=headless, settings=settings) as driver:
         authenticate_session(
             driver,
@@ -159,15 +219,30 @@ def scrape(
             save_cookies_flag=save_cookies_flag,
         )
 
-        crawler = SpotifyGraphCrawler(driver, repository=repository, settings=settings)
+        crawler = SpotifyGraphCrawler(
+            driver,
+            repository=repository,
+            settings=settings,
+            run_recorder=run_recorder,
+        )
         typer.secho(
             f"Authenticated successfully. Starting crawl for '{normalized_profile}' up to depth {depth}.",
             fg=typer.colors.GREEN,
         )
         crawler.crawl(normalized_profile, max_depth=depth)
-        repository.persist()
-        repository.archive_snapshot()
-        typer.secho("Crawl finished. Data persisted to data/.", fg=typer.colors.BLUE)
+    repository.persist()
+    repository.archive_snapshot()
+
+    run_dir = write_run_results(
+        repository=repository,
+        run_recorder=run_recorder,
+        root_profile_id=normalized_profile,
+        run_timestamp=run_timestamp,
+    )
+    typer.secho(
+        f"Crawl finished. Run data saved under {run_dir} and master cache updated.",
+        fg=typer.colors.BLUE,
+    )
 
 
 @app.command()
