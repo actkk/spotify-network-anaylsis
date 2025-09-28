@@ -1,0 +1,21 @@
+# Virtual environments
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local environment & secrets
+.env
+.env.*
+
+# Data outputs
+/data/
+
+# Selenium artifacts
+*.log
+*.png
+*.html
+
+# OS files
+.DS_Store
