@@ -84,3 +84,6 @@ Triangles are returned using display names to make inspection easier. The loader
 
 ## Repository Description (for GitHub)
 "Automation and analytics toolkit for mapping Spotify follower networks with Selenium crawlers and NetworkX-based insights."
+
+<img width="525" height="475" alt="image" src="https://github.com/user-attachments/assets/c65ba924-b3d1-44ff-a94a-87bfd4f55706" />
+
