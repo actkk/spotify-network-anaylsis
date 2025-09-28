@@ -8,6 +8,7 @@ __pycache__/
 # Local environment & secrets
 .env
 .env.*
+!.env.example
 
 # Data outputs
 /data/

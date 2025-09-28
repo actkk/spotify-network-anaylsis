@@ -37,6 +37,7 @@ FOLLOWER_THRESHOLD=1000
 SCROLL_PAUSE_SECONDS=0.3
 MAX_SCROLL_ITERATIONS=30
 MANUAL_LOGIN_TIMEOUT_SECONDS=300
+FOLLOWERS_DOWNLOAD_LIMIT=250
 ```
 
 ## Cookie-Based Sessions
@@ -46,6 +47,8 @@ python -m spotify_graph.cli login-test --no-headless --save-cookies --cookie-fil
 python -m spotify_graph.cli scrape <profile> --use-cookies --cookie-file data/cookies.json --no-headless
 ```
 Cookie files act like session tokens—store them securely and regenerate when they expire. `.gitignore` already excludes `.env`, `data/`, and other sensitive artefacts.
+
+Each crawl updates `data/current/` and archives a snapshot under `data/archive/<timestamp>/` so previous runs remain accessible.
 
 ## Crawling
 ```bash
