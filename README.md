@@ -2,7 +2,7 @@
 
 Utilities and automation for exploring Spotify's social graph via the public web interface. Selenium is used for login and follower traversal, the harvested data is cached locally, and NetworkX powers downstream analytics (loop detection, GraphML export, etc.).
 
-> **Repository URL**: https://github.com/actkk/Spotify-network-analysis.git
+> **Repository URL**: https://github.com/actkk/spotify-network-analysis.git
 
 ## Features
 - Automated Selenium login with cookie reuse and configurable throttling
