@@ -16,6 +16,7 @@ from spotify_graph.crawlers.auth import SpotifyWebAuthenticator
 from spotify_graph.crawlers.cookies import load_cookies, save_cookies
 from spotify_graph.crawlers.crawler import SpotifyGraphCrawler
 from spotify_graph.crawlers.webdriver import build_chrome_driver
+from spotify_graph.storage.repository import GraphRepository
 from spotify_graph.logging import configure_logging, get_logger
 
 app = typer.Typer(add_completion=False)
@@ -146,6 +147,8 @@ def scrape(
 
     normalized_profile = normalize_profile_identifier(profile)
 
+    repository = GraphRepository()
+
     with managed_driver(headless=headless, settings=settings) as driver:
         authenticate_session(
             driver,
@@ -156,12 +159,14 @@ def scrape(
             save_cookies_flag=save_cookies_flag,
         )
 
-        crawler = SpotifyGraphCrawler(driver, settings=settings)
+        crawler = SpotifyGraphCrawler(driver, repository=repository, settings=settings)
         typer.secho(
             f"Authenticated successfully. Starting crawl for '{normalized_profile}' up to depth {depth}.",
             fg=typer.colors.GREEN,
         )
         crawler.crawl(normalized_profile, max_depth=depth)
+        repository.persist()
+        repository.archive_snapshot()
         typer.secho("Crawl finished. Data persisted to data/.", fg=typer.colors.BLUE)
 
 

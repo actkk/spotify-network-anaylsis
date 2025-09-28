@@ -48,6 +48,9 @@ class GraphRepository:
             profile.followers_fetched = (
                 profile.followers_fetched or existing.followers_fetched
             )
+            profile.followers_oversized = (
+                profile.followers_oversized or existing.followers_oversized
+            )
         self.profiles[profile.id] = profile
 
     def add_edge(self, edge: Relationship) -> None:
@@ -58,12 +61,22 @@ class GraphRepository:
         return self.profiles.get(profile_id)
 
     def get_followers(self, profile_id: str) -> List[Profile]:
-        follower_ids = [edge.source_id for edge in self.edges if edge.relation_type == "follower" and edge.target_id == profile_id]
+        follower_ids = [
+            edge.source_id
+            for edge in self.edges
+            if edge.relation_type == "follower" and edge.target_id == profile_id
+        ]
         return [self.profiles[fid] for fid in follower_ids if fid in self.profiles]
 
     def persist(self) -> None:
         self.store.save_profiles(self.profiles)
         self.store.save_edges(self.edges)
+
+    def archive_snapshot(self) -> None:
+        try:
+            self.store.archive_snapshot()
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.error("Failed to archive snapshot: %s", exc)
 
     def bulk_add_profiles(self, profiles: Iterable[Profile]) -> None:
         for profile in profiles:

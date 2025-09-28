@@ -126,7 +126,24 @@ class SpotifyGraphCrawler:
         if existing:
             profile.followers_fetch_attempted = existing.followers_fetch_attempted
             profile.followers_fetched = existing.followers_fetched
+            profile.followers_oversized = existing.followers_oversized
         connections: Dict[str, List[Profile]] = {}
+
+        follower_limit = self.settings.followers_download_limit
+        if (
+            profile.followers is not None
+            and follower_limit
+            and profile.followers >= follower_limit
+        ):
+            profile.followers_fetch_attempted = True
+            profile.followers_oversized = True
+            LOGGER.info(
+                "Skipping follower fetch for %s due to size limit (%d >= %d)",
+                profile_id,
+                profile.followers,
+                follower_limit,
+            )
+            return profile, connections
 
         if profile.is_private:
             profile.followers_fetch_attempted = True
@@ -149,7 +166,7 @@ class SpotifyGraphCrawler:
                 LOGGER.debug("%s list for %s not accessible", relation, profile_id)
                 profile.is_private = True
                 profile.followers_fetch_attempted = True
-                continue
+                break
 
             profile.followers_fetch_attempted = True
             if relation == "followers":
@@ -157,6 +174,9 @@ class SpotifyGraphCrawler:
 
             if neighbors:
                 connections[relation] = neighbors
+
+        if not connections and not profile.followers_oversized:
+            LOGGER.debug("No follower connections recorded for %s", profile_id)
 
         return profile, connections
 

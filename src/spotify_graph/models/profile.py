@@ -17,6 +17,7 @@ class Profile(BaseModel):
     last_seen_at: datetime = Field(default_factory=datetime.utcnow)
     followers_fetch_attempted: bool = False
     followers_fetched: bool = False
+    followers_oversized: bool = False
 
 
 class Relationship(BaseModel):

@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     scroll_pause_seconds: float = Field(0.3, ge=0.0, env="SCROLL_PAUSE_SECONDS")
     max_scroll_iterations: int = Field(30, ge=1, env="MAX_SCROLL_ITERATIONS")
     manual_login_timeout_seconds: int = Field(300, ge=30, env="MANUAL_LOGIN_TIMEOUT_SECONDS")
+    followers_download_limit: int = Field(250, ge=0, env="FOLLOWERS_DOWNLOAD_LIMIT")
 
     @field_validator("spotify_base_url")
     def strip_trailing_slash(cls, value: str) -> str:
